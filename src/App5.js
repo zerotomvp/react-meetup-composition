@@ -118,6 +118,49 @@ function UserCard({ avatar, name, children, action }) {
   );
 }
 
+function ConversationItem({ conversation, onMessageSend }) {
+  const lastMessage =
+    conversation.messages[conversation.messages.length - 1]?.content;
+  return (
+    <UserCard avatar={conversation.avatar} name={conversation.name}>
+      <p>{lastMessage ? `Last message: ${lastMessage}` : "No messages"}</p>
+      <MessageBox
+        onMessageSend={(message) => onMessageSend(conversation, message)}
+      >
+        <List>
+          {conversation.messages.map(({ content, timestamp, recipient }) => (
+            <ListItem key={`${recipient}-${timestamp}`}>
+              {content ?? "test"}
+            </ListItem>
+          ))}
+        </List>
+      </MessageBox>
+    </UserCard>
+  );
+}
+
+function UserItem({ user, onConversationStart, hasConversation }) {
+  return (
+    <UserCard
+      avatar={user.avatar}
+      name={user.name}
+      action={
+        !hasConversation ? (
+          <IconActionButton
+            tooltip="Start conversation"
+            onClick={() => onConversationStart(user)}
+            icon={<SendIcon />}
+          />
+        ) : (
+          <Tooltip title="Conversation started">
+            <RequestedIcon style={{ padding: 8 }} color="primary" />
+          </Tooltip>
+        )
+      }
+    />
+  );
+}
+
 export default function App() {
   const [selectedTab, setSelectedTab] = React.useState(0);
   const [isSnackbarOpen, setIsSnackbarOpen] = React.useState(false);
@@ -165,25 +208,10 @@ export default function App() {
               );
               return (
                 <Grid key={user.id} item xs={12}>
-                  <UserCard
-                    avatar={user.avatar}
-                    name={user.name}
-                    action={
-                      !hasConversation ? (
-                        <IconActionButton
-                          tooltip="Start conversation"
-                          onClick={() => handleConversationStart(user)}
-                          icon={<SendIcon />}
-                        />
-                      ) : (
-                        <Tooltip title="Conversation started">
-                          <RequestedIcon
-                            style={{ padding: 8 }}
-                            color="primary"
-                          />
-                        </Tooltip>
-                      )
-                    }
+                  <UserItem
+                    user={user}
+                    hasConversation={hasConversation}
+                    onConversationStart={handleConversationStart}
                   />
                 </Grid>
               );
@@ -201,40 +229,14 @@ export default function App() {
           </Grid>
           <Grid container spacing={2}>
             {conversations.length === 0 && <>No conversations started</>}
-            {conversations.map((conversation) => {
-              const lastMessage =
-                conversation.messages[conversation.messages.length - 1]
-                  ?.content;
-              return (
-                <Grid key={conversation.id} item xs={12}>
-                  <UserCard
-                    avatar={conversation.avatar}
-                    name={conversation.name}
-                  >
-                    <p>
-                      {lastMessage
-                        ? `Last message: ${lastMessage}`
-                        : "No messages"}
-                    </p>
-                    <MessageBox
-                      onMessageSend={(message) =>
-                        handleMessageSend(conversation, message)
-                      }
-                    >
-                      <List>
-                        {conversation.messages.map(
-                          ({ content, timestamp, recipient }) => (
-                            <ListItem key={`${recipient}-${timestamp}`}>
-                              {content ?? "test"}
-                            </ListItem>
-                          )
-                        )}
-                      </List>
-                    </MessageBox>
-                  </UserCard>
-                </Grid>
-              );
-            })}
+            {conversations.map((conversation) => (
+              <Grid key={conversation.id} item xs={12}>
+                <ConversationItem
+                  conversation={conversation}
+                  onMessageSend={handleMessageSend}
+                />
+              </Grid>
+            ))}
           </Grid>
         </>
       )}
