@@ -161,7 +161,13 @@ function UserItem({ user, onConversationStart, hasConversation }) {
   );
 }
 
-function UsersTab({ conversations, onConversationStart }) {
+function UsersTab() {
+  const [isSnackbarOpen, setIsSnackbarOpen] = React.useState(false);
+
+  const { conversations, startConversation } = useConversations();
+
+  const handleClose = () => setIsSnackbarOpen(false);
+
   return (
     <>
       <h1>Users</h1>,
@@ -173,17 +179,32 @@ function UsersTab({ conversations, onConversationStart }) {
               <UserItem
                 user={user}
                 hasConversation={hasConversation}
-                onConversationStart={onConversationStart}
+                onConversationStart={(user) => {
+                  startConversation(user);
+                  setIsSnackbarOpen(true);
+                }}
               />
             </Grid>
           );
         })}
       </Grid>
+      <Snackbar
+        open={isSnackbarOpen}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+        autoHideDuration={1000}
+        onClose={handleClose}
+      >
+        <Alert onClose={handleClose} severity="success">
+          Conversation created!
+        </Alert>
+      </Snackbar>
     </>
   );
 }
 
-function ConversationsTab({ conversations, onMessageSend }) {
+function ConversationsTab() {
+  const { conversations, sendMessage } = useConversations();
+
   return (
     <>
       <Grid container justifyContent="center" alignItems="center">
@@ -198,7 +219,7 @@ function ConversationsTab({ conversations, onMessageSend }) {
           <Grid key={conversation.id} item xs={12}>
             <ConversationItem
               conversation={conversation}
-              onMessageSend={onMessageSend}
+              onMessageSend={sendMessage}
             />
           </Grid>
         ))}
@@ -207,66 +228,62 @@ function ConversationsTab({ conversations, onMessageSend }) {
   );
 }
 
-export default function App() {
+const ConversationsContext = React.createContext();
+
+function ConversationsContextProvider({ children }) {
+  const state = React.useState([]);
+  return (
+    <ConversationsContext.Provider value={state}>
+      {children}
+    </ConversationsContext.Provider>
+  );
+}
+
+function useConversations() {
+  const value = React.useContext(ConversationsContext);
+
+  if (!value) {
+    throw new Error("The conversation context is required");
+  }
+
+  const [conversations, setConversations] = value;
+
+  return {
+    conversations,
+    startConversation: (user) => {
+      setConversations([
+        ...conversations,
+        {
+          ...user,
+          messages: [],
+        },
+      ]);
+    },
+    sendMessage: (user, message) => {
+      const userMsgsIdx = conversations.findIndex((x) => x.id === user.id);
+
+      if (userMsgsIdx === -1) {
+        return;
+      }
+
+      conversations[userMsgsIdx].messages.push({
+        recipient: user.id,
+        content: message,
+        timestamp: Date.now(),
+      });
+
+      setConversations([...conversations]);
+    },
+  };
+}
+
+function Page() {
   const [selectedTab, setSelectedTab] = React.useState(0);
-  const [isSnackbarOpen, setIsSnackbarOpen] = React.useState(false);
-  const [conversations, setConversations] = React.useState([]);
-
-  const handleConversationStart = (user) => {
-    setConversations([
-      ...conversations,
-      {
-        ...user,
-        messages: [],
-      },
-    ]);
-
-    setIsSnackbarOpen(true);
-  };
-
-  const handleMessageSend = (user, message) => {
-    const userMsgsIdx = conversations.findIndex((x) => x.id === user.id);
-
-    if (userMsgsIdx === -1) {
-      return;
-    }
-
-    conversations[userMsgsIdx].messages.push({
-      recipient: user.id,
-      content: message,
-      timestamp: Date.now(),
-    });
-
-    setConversations([...conversations]);
-  };
-
-  const handleClose = () => setIsSnackbarOpen(false);
 
   return (
-    <div className="App">
-      {selectedTab === 0 && (
-        <UsersTab
-          conversations={conversations}
-          onConversationStart={handleConversationStart}
-        />
-      )}
-      {selectedTab === 1 && (
-        <ConversationsTab
-          conversations={conversations}
-          onMessageSend={handleMessageSend}
-        />
-      )}
-
-      <Snackbar
-        open={isSnackbarOpen}
-        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-        autoHideDuration={1000}
-        onClose={handleClose}
-      >
-        <Alert onClose={handleClose} severity="success">
-          Conversation created!
-        </Alert>
-      </Snackbar>
+    <>
+      {selectedTab === 0 && <UsersTab />}
+      {selectedTab === 1 && <ConversationsTab />}
 
       <BottomNavigation
         showLabels
@@ -278,6 +295,16 @@ export default function App() {
         <BottomNavigationAction label="Users" />
         <BottomNavigationAction label="Conversations" />
       </BottomNavigation>
+    </>
+  );
+}
+
+export default function App() {
+  return (
+    <div className="App">
+      <ConversationsContextProvider>
+        <Page />
+      </ConversationsContextProvider>
     </div>
   );
 }
